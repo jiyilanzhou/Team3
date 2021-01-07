@@ -53,6 +53,7 @@ parameter_types! {
 }
 impl Trait for Test {
 	type Event = ();
+	type MaxClaimLength = MaxClaimLength;
 }
 pub type PoeModule = Module<Test>;
 

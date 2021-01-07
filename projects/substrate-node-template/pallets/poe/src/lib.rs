@@ -19,6 +19,7 @@ mod tests;
 pub trait Trait: frame_system::Trait {
 	/// Because this pallet emits events, it depends on the runtime's definition of an event.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type MaxClaimLength: Get<u32>;
 }
 
 // The pallet's runtime storage items.
@@ -48,6 +49,7 @@ decl_error! {
 			ProofAlreadyExist,
 			ClaimNotExist,
 			NotClaimOwner,
+			LengthTooLong,
 	}
 }
 
@@ -62,6 +64,8 @@ decl_module! {
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 
+		const MaxClaimLength: u32 = T::MaxClaimLength::get();
+
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[weight = 0]
@@ -71,6 +75,7 @@ decl_module! {
 			// https://substrate.dev/docs/en/knowledgebase/runtime/origin
 			let sender = ensure_signed(origin)?;
 
+			ensure!(claim.len() <= T::MaxClaimLength::get() as usize, Error::<T>::LengthTooLong);
 			ensure!(!Proofs::<T>::contains_key(&claim),Error::<T>::ProofAlreadyExist);
 
 			Proofs::<T>::insert(&claim,(sender.clone(),frame_system::Module::<T>::block_number()));
