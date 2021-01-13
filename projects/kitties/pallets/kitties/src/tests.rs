@@ -1,7 +1,7 @@
-use crate::{Error, mock::*};
-use frame_support::{assert_ok, assert_noop};
-use crate::RawEvent;
+use frame_support::{assert_noop, assert_ok};
 
+use crate::{Error, mock::*};
+use crate::RawEvent;
 
 #[test]
 fn test_create(){
@@ -41,6 +41,6 @@ fn test_breed() {
 		assert_ok!(Kitties::create(Origin::signed(2)));
 		assert_ok!(Kitties::breed(Origin::signed(1),0,1));
 
-		assert_eq!(last_event(), RawEvent::Created(1,2));
+		assert_eq!(last_event(), RawEvent::Created(1, 2));
 	})
 }

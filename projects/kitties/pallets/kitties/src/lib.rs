@@ -12,10 +12,19 @@ use sp_runtime::{DispatchError, traits::{AtLeast32Bit, Bounded, Member}};
 use sp_std::{
 	prelude::*,
 };
+use sp_runtime::RuntimeDebug;
+
 
 type KittyIndex = u32;
-#[derive(Encode, Decode)]
-pub struct Kitty(pub [u8; 16]);
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, Default)]
+pub struct Kitty {
+	pub dna :  [u8; 16],
+	pub index : KittyIndex,
+	pub father: KittyIndex,
+	pub mother: KittyIndex,
+	pub children:Vec<KittyIndex>,
+	pub breeds : Vec<KittyIndex>,
+}
 
 
 #[cfg(test)]
@@ -41,6 +50,7 @@ decl_storage! {
         pub Kitties get(fn kitties): map hasher(blake2_128_concat) KittyIndex => Option<Kitty>;
         pub KittiesCount get (fn kitties_count): KittyIndex;
         pub KittyOwners get(fn kitty_owner): map hasher(blake2_128_concat) KittyIndex => Option<T::AccountId>;
+        pub AccountKitties get(fn account_kitties): map hasher(blake2_128_concat) T::AccountId => Vec<KittyIndex>;
     }
 }
 
@@ -80,7 +90,14 @@ decl_module! {
             let kitty_id = Self::next_kitty_id()?;
             let dna = Self::random_value(&sender);
 
-            let kitty = Kitty(dna);
+            let kitty = Kitty{
+             	dna,
+             	index:kitty_id,
+             	father:0,
+             	mother:0,
+             	children: vec![],
+             	breeds: vec![],
+            };
             Self::insert_kitty(&sender, kitty_id, kitty);
             println!("{:?}  {:?}",sender,kitty_id);
             Self::deposit_event(RawEvent::Created(sender, kitty_id));
@@ -95,11 +112,12 @@ decl_module! {
 				ensure!(v == sender , Error::<T>::NotKittyOwner);
 			}
 
+            <KittyOwners<T>>::insert(kitty_id, to.clone());
+
 			T::Currency::reserve(&to, T::KittyReserve::get())
 					.map_err(|_| "locker can't afford to lock the amount requested")?;
 			T::Currency::unreserve(&sender, T::KittyReserve::get());
 
-            <KittyOwners<T>>::insert(kitty_id, to.clone());
             Self::deposit_event(RawEvent::Transferred(sender, to, kitty_id))
         }
 
@@ -125,6 +143,12 @@ impl<T: Trait> Module<T> {
 		Kitties::insert(kitty_id, kitty);
 		KittiesCount::put(kitty_id + 1);
 		<KittyOwners<T>>::insert(kitty_id, owner);
+
+		let mut kitties = Self::account_kitties(&owner);
+		if !kitties.contains(&kitty_id) {
+			kitties.push(kitty_id);
+			<AccountKitties<T>>::insert(owner, kitties);
+		}
 	}
 
 	fn next_kitty_id() -> Result<KittyIndex, DispatchError> {
@@ -150,15 +174,15 @@ impl<T: Trait> Module<T> {
 	//     kitty_id_2: KittyIndex,
 	// ) -> sp_std::result::Result<KittyIndex, DispatchError> {
 	fn do_breed(sender: &T::AccountId, kitty_id_1: KittyIndex, kitty_id_2: KittyIndex) -> Result<KittyIndex, DispatchError> {
-		let kitty1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyId)?;
-		let kitty2 = Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyId)?;
+		let mut kitty1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyId)?;
+		let mut kitty2 = Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyId)?;
 
 		ensure!(kitty_id_1 != kitty_id_2, Error::<T>::RequireDifferentParent);
 
 		let kitty_id = Self::next_kitty_id()?;
 
-		let kitty1_dna = kitty1.0;
-		let kitty2_dna = kitty2.0;
+		let kitty1_dna = kitty1.dna;
+		let kitty2_dna = kitty2.dna;
 
 		let selector = Self::random_value(&sender);
 		let mut new_dna = [0u8; 16];
@@ -167,7 +191,29 @@ impl<T: Trait> Module<T> {
 			new_dna[i] = combine_dna(kitty1_dna[i], kitty2_dna[i], selector[i]);
 		}
 
-		Self::insert_kitty(sender, kitty_id, Kitty(new_dna));
+		kitty1.children.push(kitty_id);
+		let mut find = false;
+		if !kitty1.breeds.contains(&kitty2.index) {
+			kitty1.breeds.push(kitty2.index);
+			find = true;
+		}
+		Kitties::insert(kitty1.index, kitty1.clone());
+
+
+		kitty2.children.push(kitty_id);
+		if !find {
+			kitty2.breeds.push(kitty1.index);
+		}
+		Kitties::insert(kitty2.index, kitty2.clone());
+
+		Self::insert_kitty(sender, kitty_id, Kitty{
+			dna: new_dna,
+			index:kitty_id,
+			father: kitty1.index,
+			mother: kitty2.index,
+			children: vec![],
+			breeds: vec![],
+		});
 		Ok(kitty_id)
 	}
 
