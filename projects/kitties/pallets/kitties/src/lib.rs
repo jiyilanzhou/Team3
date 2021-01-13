@@ -99,7 +99,7 @@ decl_module! {
              	breeds: vec![],
             };
             Self::insert_kitty(&sender, kitty_id, kitty);
-            println!("{:?}  {:?}",sender,kitty_id);
+          //  println!("{:?}  {:?}",sender,kitty_id);
             Self::deposit_event(RawEvent::Created(sender, kitty_id));
         }
 
