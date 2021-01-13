@@ -82,6 +82,7 @@ decl_module! {
 
             let kitty = Kitty(dna);
             Self::insert_kitty(&sender, kitty_id, kitty);
+            println!("{:?}  {:?}",sender,kitty_id);
             Self::deposit_event(RawEvent::Created(sender, kitty_id));
         }
 
@@ -106,10 +107,11 @@ decl_module! {
         pub fn breed(origin, kitty_id1: KittyIndex, kitty_id2: KittyIndex){
             let sender = ensure_signed(origin)?;
 
+            let new_kitty_id = Self::do_breed(&sender, kitty_id1, kitty_id2)?;
+
 			T::Currency::reserve(&sender, T::KittyReserve::get())
 					.map_err(|_| "locker can't afford to lock the amount requested")?;
 
-            let new_kitty_id = Self::do_breed(&sender, kitty_id1, kitty_id2)?;
             Self::deposit_event(RawEvent::Created(sender,new_kitty_id));
         }
     }
