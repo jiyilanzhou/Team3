@@ -199,12 +199,11 @@ impl<T: Trait> Module<T> {
 		}
 		Kitties::insert(kitty1.index, kitty1.clone());
 
-
-		kitty2.children.push(kitty_id);
-		if !find {
+		// only father save children
+		if find {
 			kitty2.breeds.push(kitty1.index);
+			Kitties::insert(kitty2.index, kitty2.clone());
 		}
-		Kitties::insert(kitty2.index, kitty2.clone());
 
 		Self::insert_kitty(sender, kitty_id, Kitty{
 			dna: new_dna,
