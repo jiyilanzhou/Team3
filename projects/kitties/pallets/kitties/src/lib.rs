@@ -2,22 +2,20 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, sp_runtime,
-	StorageMap, StorageValue, Parameter,
-	traits::{Randomness, Currency, ReservableCurrency, Get},
+	decl_error, decl_event, decl_module, decl_storage, ensure, Parameter,
+	sp_runtime, StorageMap, StorageValue,
+	traits::{Currency, Get, Randomness, ReservableCurrency},
 };
 use frame_system::ensure_signed;
-use sp_io::hashing::{blake2_128};
+use sp_io::hashing::blake2_128;
 use sp_runtime::{DispatchError, traits::{AtLeast32Bit, Bounded, Member}};
+use sp_runtime::RuntimeDebug;
 use sp_std::{
 	prelude::*,
 };
-use sp_runtime::RuntimeDebug;
 
-
-type KittyIndex = u32;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, Default)]
-pub struct Kitty {
+pub struct Kitty<KittyIndex> {
 	pub dna :  [u8; 16],
 	pub index : KittyIndex,
 	pub father: KittyIndex,
@@ -47,10 +45,10 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trai
 
 decl_storage! {
     trait Store for Module<T: Trait> as Kitties {
-        pub Kitties get(fn kitties): map hasher(blake2_128_concat) KittyIndex => Option<Kitty>;
-        pub KittiesCount get (fn kitties_count): KittyIndex;
-        pub KittyOwners get(fn kitty_owner): map hasher(blake2_128_concat) KittyIndex => Option<T::AccountId>;
-        pub AccountKitties get(fn account_kitties): map hasher(blake2_128_concat) T::AccountId => Vec<KittyIndex>;
+        pub Kitties get(fn kitties): map hasher(blake2_128_concat) T::KittyIndex => Option<Kitty<T::KittyIndex>>;
+        pub KittiesCount get (fn kitties_count): T::KittyIndex;
+        pub KittyOwners get(fn kitty_owner): map hasher(blake2_128_concat) T::KittyIndex => Option<T::AccountId>;
+        pub AccountKitties get(fn account_kitties): map hasher(blake2_128_concat) T::AccountId => Vec<T::KittyIndex>;
     }
 }
 
@@ -64,7 +62,9 @@ decl_error! {
 }
 
 decl_event! {
-    pub enum Event<T> where <T as frame_system::Trait>::AccountId,{
+    pub enum Event<T> where
+    		<T as frame_system::Trait>::AccountId,
+      		<T as Trait>::KittyIndex {
 
         Created(AccountId, KittyIndex),
         Transferred(AccountId, AccountId, KittyIndex),
@@ -93,8 +93,8 @@ decl_module! {
             let kitty = Kitty{
              	dna,
              	index:kitty_id,
-             	father:0,
-             	mother:0,
+             	father:0.into(),
+             	mother:0.into(),
              	children: vec![],
              	breeds: vec![],
             };
@@ -104,7 +104,7 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn transfer(origin, to: T::AccountId, kitty_id: KittyIndex){
+        pub fn transfer(origin, to: T::AccountId, kitty_id: T::KittyIndex){
             let sender = ensure_signed(origin)?;
 
 			let kitties = Self::kitty_owner(kitty_id);
@@ -114,6 +114,23 @@ decl_module! {
 
             <KittyOwners<T>>::insert(kitty_id, to.clone());
 
+			let kitties = Self::account_kitties(&sender);
+     	    let kitties: Vec<T::KittyIndex> = kitties
+      	       .into_iter()
+      	       .filter(|o| {
+      	       		if *o == kitty_id {
+      	       			false
+      	       		} else {
+      	       			true
+      	       		}
+      	       })
+     	       .collect();
+			<AccountKitties<T>>::insert(sender.clone(), kitties);
+
+			let mut kitties = Self::account_kitties(&to);
+			kitties.push(kitty_id);
+			<AccountKitties<T>>::insert(to.clone(), kitties);
+
 			T::Currency::reserve(&to, T::KittyReserve::get())
 					.map_err(|_| "locker can't afford to lock the amount requested")?;
 			T::Currency::unreserve(&sender, T::KittyReserve::get());
@@ -122,7 +139,7 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn breed(origin, kitty_id1: KittyIndex, kitty_id2: KittyIndex){
+        pub fn breed(origin, kitty_id1: T::KittyIndex, kitty_id2: T::KittyIndex){
             let sender = ensure_signed(origin)?;
 
             let new_kitty_id = Self::do_breed(&sender, kitty_id1, kitty_id2)?;
@@ -139,9 +156,9 @@ fn combine_dna(dna1: u8, dna2: u8, selector: u8) -> u8 {
 }
 
 impl<T: Trait> Module<T> {
-	fn insert_kitty(owner: &T::AccountId, kitty_id: KittyIndex, kitty: Kitty) {
-		Kitties::insert(kitty_id, kitty);
-		KittiesCount::put(kitty_id + 1);
+	fn insert_kitty(owner: &T::AccountId, kitty_id: T::KittyIndex, kitty: Kitty<T::KittyIndex>) {
+		Kitties::<T>::insert(kitty_id, kitty);
+		KittiesCount::<T>::put(kitty_id + 1.into());
 		<KittyOwners<T>>::insert(kitty_id, owner);
 
 		let mut kitties = Self::account_kitties(&owner);
@@ -151,9 +168,9 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	fn next_kitty_id() -> Result<KittyIndex, DispatchError> {
+	fn next_kitty_id() -> Result<T::KittyIndex, DispatchError> {
 		let kitty_id = Self::kitties_count();
-		if kitty_id == KittyIndex::max_value() {
+		if kitty_id == T::KittyIndex::max_value() {
 			return Err(Error::<T>::KittiesCountOverFlow.into());
 		}
 		Ok(kitty_id)
@@ -173,7 +190,7 @@ impl<T: Trait> Module<T> {
 	//     kitty_id_1: KittyIndex,
 	//     kitty_id_2: KittyIndex,
 	// ) -> sp_std::result::Result<KittyIndex, DispatchError> {
-	fn do_breed(sender: &T::AccountId, kitty_id_1: KittyIndex, kitty_id_2: KittyIndex) -> Result<KittyIndex, DispatchError> {
+	fn do_breed(sender: &T::AccountId, kitty_id_1: T::KittyIndex, kitty_id_2: T::KittyIndex) -> Result<T::KittyIndex, DispatchError> {
 		let mut kitty1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyId)?;
 		let mut kitty2 = Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyId)?;
 
@@ -197,12 +214,12 @@ impl<T: Trait> Module<T> {
 			kitty1.breeds.push(kitty2.index);
 			find = true;
 		}
-		Kitties::insert(kitty1.index, kitty1.clone());
+		Kitties::<T>::insert(kitty1.index, kitty1.clone());
 
 		// only father save children
 		if find {
 			kitty2.breeds.push(kitty1.index);
-			Kitties::insert(kitty2.index, kitty2.clone());
+			Kitties::<T>::insert(kitty2.index, kitty2.clone());
 		}
 
 		Self::insert_kitty(sender, kitty_id, Kitty{
