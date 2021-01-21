@@ -18,15 +18,53 @@ export default function Kitties (props) {
   const [status, setStatus] = useState('');
 
   const fetchKittyCnt = () => {
-    /* TODO: 加代码，从 substrate 端读取数据过来 */
+    if (!api || !keyring) {
+      return;
+    }
+
+    let unsubscribe;
+    api.query.kittiesModule.kittiesCount(count => {
+      setKittyCnt(count.toNumber());
+    }).then(unsub => {
+      unsubscribe = unsub;
+    }).catch(console.error);
+    return () => unsubscribe && unsubscribe();
   };
 
   const fetchKitties = () => {
-    /* TODO: 加代码，从 substrate 端读取数据过来 */
+    let unsubscribe = null
+    let keys = [...Array(kittyCnt.length).keys()]
+    api.query.kittiesModule.kitties.multi(keys, _kitties => {
+      console.log("_kitties:", _kitties);
+      setKitties(_kitties.map((item, idx) => ({
+        dna: item.hash.toHuman(),
+        id: idx,
+        is_owner: true
+      })));
+    })
+        .then(suc => {
+          unsubscribe = suc;
+        })
+        .catch(error => {
+          console.warn(error)
+        })
+
+    return () => unsubscribe && unsubscribe();
   };
 
   const populateKitties = () => {
     /* TODO: 加代码，从 substrate 端读取数据过来 */
+    let unsubscribe;
+    let keys = [];
+    for (let i = 0; i < kittyCnt; i++) {
+      keys.push(i);
+    }
+    api.query.kittiesModule.kittyOwners.multi(keys, (data) => {
+      setKittyOwners(data);
+    }).then(unsub => {
+      unsubscribe = unsub;
+    }).catch(console.error);
+    return () => unsubscribe && unsubscribe();
   };
 
   useEffect(fetchKittyCnt, [api, keyring]);

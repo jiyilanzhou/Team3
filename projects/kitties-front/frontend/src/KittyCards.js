@@ -12,8 +12,10 @@ const TransferModal = props => {
   const [formValue, setFormValue] = React.useState({});
 
   const formChange = key => (ev, el) => {
-    /* TODO: 加代码 */
-  };
+    setFormValue(prev => ({
+      ...prev,
+      [key]: el.value
+    }));  };
 
   const confirmAndClose = (unsub) => {
     unsub();
@@ -45,6 +47,38 @@ const TransferModal = props => {
 
 // --- About Kitty Card ---
 
+const KittyTitle = props =>{
+  const {kitty, accountPair, setStatus} = props;
+  if (kitty.owner == accountPair.address) {
+    return (
+        <Card.Content textAlign='right'>
+          <Label style={{backgroundColor:'green'}}> {accountPair.meta.name.toUpperCase()}</Label>
+        </Card.Content>
+    )
+  }else {
+    return (<Card.Content textAlign='right'>
+      <Label>  </Label>
+    </Card.Content> )
+  }
+}
+
+const KittyTransfer = props =>{
+  const {kitty, accountPair, setStatus} = props;
+  if (kitty.owner == accountPair.address) {
+    return (
+        <Card.Content extra textAlign='center'>
+          <TransferModal kitty={kitty} accountPair={accountPair} setStatus={setStatus}/>
+        </Card.Content>
+    )
+  }else {
+    return (
+        <Card.Content extra textAlign='center'>
+          <Label>  </Label>
+        </Card.Content>
+    )
+  }
+}
+
 const KittyCard = props => {
   /*
     TODO: 加代码。这里会 UI 显示一张 `KittyCard` 是怎么样的。这里会用到：
@@ -53,14 +87,31 @@ const KittyCard = props => {
     <TransferModal kitty={kitty} accountPair={accountPair} setStatus={setStatus}/> - 来作转让的弹出层
     ```
   */
-  return null;
+  // return null;
+  const {kitty, accountPair, setStatus} = props;
+  console.log(kitty.dna)
+  return (
+      <Card>
+        <KittyTitle kitty={kitty} accountPair={accountPair} setStatus={setStatus}/>
+        <Card.Content>
+          <KittyAvatar dna={kitty.dna}/>
+          <Card.Header>ID号：{kitty.id}</Card.Header>
+          <Card.Meta style={{ overflowWrap: 'break-word' }}>基因：{kitty.dna.join(",")}</Card.Meta>
+          <span style={{ overflowWrap: 'break-word' }}>猫奴：{kitty.owner}</span>
+          <br/>
+        </Card.Content>
+        <KittyTransfer kitty={kitty} accountPair={accountPair} setStatus={setStatus}/>
+      </Card>
+  );
 };
 
 const KittyCards = props => {
   const { kitties, accountPair, setStatus } = props;
 
-  /* TODO: 加代码。这里会枚举所有的 `KittyCard` */
-  return null;
-};
+  return (
+      <Grid>
+        {kitties.map((kitty, index) => <KittyCard key={index} kitty={kitty} accountPair={accountPair} setStatus={setStatus} />)}
+      </Grid>
+  );};
 
 export default KittyCards;
