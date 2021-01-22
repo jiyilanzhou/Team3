@@ -80,14 +80,6 @@ const KittyTransfer = props =>{
 }
 
 const KittyCard = props => {
-  /*
-    TODO: 加代码。这里会 UI 显示一张 `KittyCard` 是怎么样的。这里会用到：
-    ```
-    <KittyAvatar dna={dna} /> - 来描绘一只猫咪
-    <TransferModal kitty={kitty} accountPair={accountPair} setStatus={setStatus}/> - 来作转让的弹出层
-    ```
-  */
-  // return null;
   const {kitty, accountPair, setStatus} = props;
   console.log(kitty.dna)
   return (
@@ -106,12 +98,21 @@ const KittyCard = props => {
 };
 
 const KittyCards = props => {
-  const { kitties, accountPair, setStatus } = props;
+    const { kitties, kittyOwners, kittyPrices, accountPair, setStatus } = props;
+    const gridCss = {
+        margin:"5px",
+    };
 
-  return (
-      <Grid>
-        {kitties.map((kitty, index) => <KittyCard key={index} kitty={kitty} accountPair={accountPair} setStatus={setStatus} />)}
-      </Grid>
-  );};
+    return <Grid columns='equal'><Grid.Row stretched>
+        {
+            kitties.map((kitty, index) => {
+                return <Grid.Row key={index}>
+                        <KittyCard kitty={kitty} owner={kittyOwners[index]} price={kittyPrices[index]} accountPair={accountPair} setStatus={setStatus} />
+                    </Grid.Row>
+            })
+        }
+    </Grid.Row>
+    </Grid>;
+};
 
 export default KittyCards;

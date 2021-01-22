@@ -32,22 +32,26 @@ export default function Kitties (props) {
   };
 
   const fetchKitties = () => {
-    let unsubscribe = null
-    let keys = [...Array(kittyCnt.length).keys()]
-    api.query.kittiesModule.kitties.multi(keys, _kitties => {
-      console.log("_kitties:", _kitties);
-      setKitties(_kitties.map((item, idx) => ({
-        dna: item.hash.toHuman(),
-        id: idx,
-        is_owner: true
-      })));
-    })
-        .then(suc => {
-          unsubscribe = suc;
+    let unsubscribe;
+    const kitty_ids = Array.from(Array(kittyCnt), (v, k) => k);
+
+    api.query.kittiesModule.kitties.multi(kitty_ids, kitties => {
+      console.log("kitties1:", kitties);
+      api.query.kittiesModule.kittyOwners.multi(kitty_ids, kitty_owners => {
+        kitties.forEach(function (item, id, arr) {
+          arr[id].id = id;
+          arr[id].dna = item.unwrap();
+          arr[id].owner = keyring.encodeAddress(kitty_owners[id].unwrap());
         })
-        .catch(error => {
-          console.warn(error)
-        })
+        console.log("kitties2:", kitties);
+        setKittyOwners(kitty_owners);
+        setKitties(kitties);
+      }).then(unsub => {
+        unsubscribe = unsub;
+      }).catch(console.error);
+    }).then(unsub => {
+      unsubscribe = unsub;
+    }).catch(console.error);
 
     return () => unsubscribe && unsubscribe();
   };
@@ -73,7 +77,7 @@ export default function Kitties (props) {
 
   return <Grid.Column width={16}>
     <h1>小毛孩</h1>
-    <KittyCards kitties={kitties} accountPair={accountPair} setStatus={setStatus}/>
+    <KittyCards kitties={kitties} accountPair={accountPair} kittyOwners={kittyOwners} kittyPrices={kittyPrices} setStatus={setStatus}/>
     <Form style={{ margin: '1em 0' }}>
       <Form.Field style={{ textAlign: 'center' }}>
         <TxButton
