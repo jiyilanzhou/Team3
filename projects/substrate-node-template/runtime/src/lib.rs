@@ -261,10 +261,10 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
-// /// Configure the template pallet in pallets/template.
-// impl pallet_template::Trait for Runtime {
-// 	type Event = Event;
-// }
+/// Configure the template pallet in pallets/template.
+impl pallet_template::Trait for Runtime {
+	type Event = Event;
+}
 
 parameter_types! {
 	pub const MaxClaimLength: u32 = 6;
@@ -291,7 +291,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		// Include the custom logic from the template pallet in the runtime.
-		//TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
+		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
 		PoeModule: pallet_poe::{Module, Call, Storage, Event<T>},
 	}
 );
@@ -482,6 +482,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+			add_benchmark!(params, batches, pallet_template, TemplateModule);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

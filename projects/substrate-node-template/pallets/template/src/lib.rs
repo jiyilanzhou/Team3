@@ -12,6 +12,7 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
+mod benchmarking;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait {
@@ -65,7 +66,8 @@ decl_module! {
 
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
-		#[weight = 10_000 + T::DbWeight::get().writes(1)]
+		// #[weight = 10_000 + T::DbWeight::get().writes(1)]
+		#[weight = T::DbWeight::get().writes(1) + 44_660_000]
 		pub fn do_something(origin, something: u32) -> dispatch::DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.

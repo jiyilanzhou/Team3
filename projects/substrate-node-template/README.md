@@ -173,3 +173,16 @@ by appending your own. A few useful ones are as follow.
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check
 ```
+
+
+### Benchmark
+
+```shell
+cd node
+cargo build --release --features runtime-benchmarks
+cd ..
+# benchmark balances pallet
+./target/release/node-template benchmark --chain dev --execution=wasm --wasm-execution=compiled --pallet pallet_balances --extrinsic transfer --steps 50 --repeat 20 --raw > balances_transfer.txt
+# benchmark for template
+./target/release/node-template benchmark --chain dev --execution=wasm --wasm-execution=compiled --pallet pallet_template --extrinsic do_something --steps 50 --repeat 20
+```
